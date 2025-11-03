@@ -22,8 +22,8 @@ export async function POST(request) {
       );
     }
 
-    // Get stored OTP data
-    const storedData = otpStore.get(email);
+    // Get stored OTP data from Firestore
+    const storedData = await otpStore.get(email);
 
     if (!storedData) {
       return NextResponse.json(
@@ -32,9 +32,9 @@ export async function POST(request) {
       );
     }
 
-    // Check if OTP has expired
+    // Check if OTP has expired (redundant but safe)
     if (Date.now() > storedData.expiresAt) {
-      otpStore.delete(email);
+      await otpStore.delete(email);
       return NextResponse.json(
         { success: false, error: 'OTP has expired. Please request a new OTP.' },
         { status: 400 }
@@ -43,7 +43,7 @@ export async function POST(request) {
 
     // Check attempt limit (max 5 attempts)
     if (storedData.attempts >= 5) {
-      otpStore.delete(email);
+      await otpStore.delete(email);
       return NextResponse.json(
         { success: false, error: 'Too many failed attempts. Please request a new OTP.' },
         { status: 429 }
@@ -52,19 +52,19 @@ export async function POST(request) {
 
     // Verify OTP
     if (storedData.otp !== otp) {
-      storedData.attempts += 1;
+      await otpStore.update(email, { attempts: storedData.attempts + 1 });
       return NextResponse.json(
         { 
           success: false, 
           error: 'Invalid OTP. Please try again.',
-          attemptsRemaining: 5 - storedData.attempts
+          attemptsRemaining: 5 - (storedData.attempts + 1)
         },
         { status: 400 }
       );
     }
 
     // OTP is valid - delete it and create session
-    otpStore.delete(email);
+    await otpStore.delete(email);
 
     // Generate a simple session token (in production, use JWT or proper session management)
     const sessionToken = Buffer.from(`${email}:${Date.now()}`).toString('base64');

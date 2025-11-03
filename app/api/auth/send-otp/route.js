@@ -28,8 +28,8 @@ export async function POST(request) {
     const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES || '10');
     const expiresAt = Date.now() + (expiryMinutes * 60 * 1000);
 
-    // Store OTP with expiration
-    otpStore.set(email, {
+    // Store OTP with expiration in Firestore
+    await otpStore.set(email, {
       otp,
       expiresAt,
       attempts: 0,
@@ -44,8 +44,6 @@ export async function POST(request) {
         { status: 500 }
       );
     }
-
-    console.log(`OTP sent to ${email}: ${otp} (expires at ${new Date(expiresAt).toISOString()})`);
 
     return NextResponse.json({
       success: true,
